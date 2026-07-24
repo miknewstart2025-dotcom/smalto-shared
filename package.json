@@ -10,7 +10,8 @@
     "./slug.js": {
       "types": "./src/slug.d.ts",
       "default": "./src/slug.js"
-    }
+    },
+    "./newsletter.js": "./src/newsletter.js"
   },
   "dependencies": {
     "xmlrpc": "^1.3.2"
