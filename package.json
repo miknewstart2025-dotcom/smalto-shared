@@ -6,7 +6,11 @@
   "exports": {
     "./odoo-core.js": "./src/odoo-core.js",
     "./invoices.js": "./src/invoices.js",
-    "./wishlist.js": "./src/wishlist.js"
+    "./wishlist.js": "./src/wishlist.js",
+    "./slug.js": {
+      "types": "./src/slug.d.ts",
+      "default": "./src/slug.js"
+    }
   },
   "dependencies": {
     "xmlrpc": "^1.3.2"
