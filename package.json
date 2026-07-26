@@ -12,6 +12,7 @@
       "default": "./src/slug.js"
     },
     "./newsletter.js": "./src/newsletter.js",
+    "./shipping-config.js": "./src/shipping-config.js",
     "./product-helpers.js": "./src/product-helpers.js",
     "./stripe.js": "./src/stripe.js"
   },
