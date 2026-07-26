@@ -101,6 +101,37 @@ export async function computeCategoryCounts(domain) {
   return [...counts.values()].sort((a, b) => a.name.localeCompare(b.name, "fr"));
 }
 
+// Résout un nom de catégorie (parent, groupe intermédiaire, ou feuille réelle)
+// vers l'ensemble des IDs de catégories-feuilles à filtrer sur les produits.
+// Nécessaire depuis l'introduction de la hiérarchie parent/enfant : un clic
+// sur "Accessoires" ou "Vestes & Manteaux" doit remonter tous les produits
+// des sous-catégories, pas seulement ceux taggés exactement sur ce nom (les
+// parents eux-mêmes ne portent jamais de produit). Comparaison insensible à
+// la casse (=ilike) car les catégories réelles sont en MAJUSCULES alors que
+// les nouveaux parents/groupes sont en French Case ("Vêtements Homme").
+export async function resolveCategoryDescendantIds(categoryName) {
+  const matches = await odooCall("product.category", "search_read",
+    [[["name", "=ilike", categoryName]]],
+    { fields: ["id"], limit: 1 }
+  );
+  if (!matches.length) return [];
+  const rootId = matches[0].id;
+
+  const allIds = [rootId];
+  let frontier = [rootId];
+  while (frontier.length) {
+    const children = await odooCall("product.category", "search_read",
+      [[["parent_id", "in", frontier]]],
+      { fields: ["id"] }
+    );
+    if (!children.length) break;
+    const childIds = children.map((c) => c.id);
+    allIds.push(...childIds);
+    frontier = childIds;
+  }
+  return allIds;
+}
+
 // Construit l'arborescence catégories parentes → enfants pour la navigation
 // premium (mega-menu, page catégories), à partir des mêmes comptages que
 // computeCategoryCounts mais en résolvant le vrai parent_id de chaque
