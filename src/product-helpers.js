@@ -79,6 +79,28 @@ export async function resolveSizeFilterIds(sizes) {
   return new Set(lines.map((l) => l.product_tmpl_id[0]));
 }
 
+// Compte les produits par catégorie pour un domaine donné. Odoo SaaS n'expose
+// pas read_group via XML-RPC ("does not exist" — pas dans l'allowlist), donc on
+// compte côté client à partir d'un seul search_read plutôt qu'un search_count
+// par catégorie (qui déclenche le rate-limit Odoo au-delà d'une vingtaine de
+// catégories). Le domaine doit refléter exactement les mêmes filtres que le
+// catalogue affiché, sinon une catégorie peut apparaître ici avec un nombre de
+// produits qui tombe à zéro une fois sur la page catalogue réelle.
+export async function computeCategoryCounts(domain) {
+  const products = await odooCall("product.template", "search_read", [domain], {
+    fields: ["categ_id"], limit: 2000,
+  });
+  const counts = new Map();
+  for (const p of products || []) {
+    if (!p.categ_id) continue;
+    const [id, name] = p.categ_id;
+    const entry = counts.get(id) || { id, name, complete_name: name, product_count: 0 };
+    entry.product_count += 1;
+    counts.set(id, entry);
+  }
+  return [...counts.values()].sort((a, b) => a.name.localeCompare(b.name, "fr"));
+}
+
 // Calcule les facettes couleur/taille/composition pour un domaine de recherche
 // donné (déjà filtré par flag de publication / catégories exclues par l'appelant).
 export async function computeProductFacets(baseDomain) {
