@@ -101,6 +101,83 @@ export async function computeCategoryCounts(domain) {
   return [...counts.values()].sort((a, b) => a.name.localeCompare(b.name, "fr"));
 }
 
+// Construit l'arborescence catégories parentes → enfants pour la navigation
+// premium (mega-menu, page catégories), à partir des mêmes comptages que
+// computeCategoryCounts mais en résolvant le vrai parent_id de chaque
+// catégorie feuille (categ_id[1] renvoyé par Odoo est le complete_name
+// "Parent / Sous-parent / Feuille", pas le nom court — il faut donc relire
+// product.category séparément pour connaître name/parent_id de chaque noeud).
+// Ne remonte que les branches ayant au moins un produit ; les catégories
+// sans parent restant flat (ex: BLAZER si isolée) sont renvoyées telles quelles.
+export async function computeCategoryTree(domain) {
+  const products = await odooCall("product.template", "search_read", [domain], {
+    fields: ["categ_id"], limit: 2000,
+  });
+
+  const leafCounts = new Map(); // categId -> product_count
+  for (const p of products || []) {
+    if (!p.categ_id) continue;
+    const id = p.categ_id[0];
+    leafCounts.set(id, (leafCounts.get(id) || 0) + 1);
+  }
+  if (!leafCounts.size) return [];
+
+  // Charge tout l'arbre product.category (petite table, <50 lignes) pour
+  // pouvoir remonter les ancêtres de chaque feuille comptée.
+  const allCats = await odooCall("product.category", "search_read", [[]], {
+    fields: ["id", "name", "parent_id"],
+  });
+  const byId = new Map(allCats.map((c) => [c.id, c]));
+
+  const nodes = new Map(); // categId -> { id, name, product_count, children: Map }
+  const getNode = (id) => {
+    if (!nodes.has(id)) {
+      const cat = byId.get(id);
+      nodes.set(id, { id, name: cat?.name || `#${id}`, product_count: 0, children: new Map() });
+    }
+    return nodes.get(id);
+  };
+
+  const roots = new Map(); // categId -> node (top-level, parent_id = false)
+
+  for (const [leafId, count] of leafCounts) {
+    const leafCat = byId.get(leafId);
+    if (!leafCat) continue;
+
+    // Remonte la chaîne de parents jusqu'à la racine, en créditant le
+    // compte à chaque niveau (un parent affiche le total de ses enfants).
+    let current = leafCat;
+    let currentNode = getNode(current.id);
+    currentNode.product_count += count;
+
+    while (current.parent_id) {
+      const parentId = current.parent_id[0];
+      const parentCat = byId.get(parentId);
+      if (!parentCat) break;
+      const parentNode = getNode(parentId);
+      parentNode.product_count += count;
+      parentNode.children.set(current.id, currentNode);
+      current = parentCat;
+      currentNode = parentNode;
+    }
+    // `current` est maintenant la racine de cette branche
+    roots.set(current.id, currentNode);
+  }
+
+  const toArray = (node) => ({
+    id: node.id,
+    name: node.name,
+    product_count: node.product_count,
+    ...(node.children.size
+      ? { children: [...node.children.values()].sort((a, b) => a.name.localeCompare(b.name, "fr")).map(toArray) }
+      : {}),
+  });
+
+  return [...roots.values()]
+    .sort((a, b) => a.name.localeCompare(b.name, "fr"))
+    .map(toArray);
+}
+
 // Calcule les facettes couleur/taille/composition pour un domaine de recherche
 // donné (déjà filtré par flag de publication / catégories exclues par l'appelant).
 export async function computeProductFacets(baseDomain) {
