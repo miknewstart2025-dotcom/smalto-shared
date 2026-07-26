@@ -12,9 +12,11 @@
       "default": "./src/slug.js"
     },
     "./newsletter.js": "./src/newsletter.js",
-    "./product-helpers.js": "./src/product-helpers.js"
+    "./product-helpers.js": "./src/product-helpers.js",
+    "./stripe.js": "./src/stripe.js"
   },
   "dependencies": {
-    "xmlrpc": "^1.3.2"
+    "xmlrpc": "^1.3.2",
+    "stripe": "^22.1.1"
   }
 }
