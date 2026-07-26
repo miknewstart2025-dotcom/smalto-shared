@@ -14,10 +14,13 @@
     "./newsletter.js": "./src/newsletter.js",
     "./shipping-config.js": "./src/shipping-config.js",
     "./product-helpers.js": "./src/product-helpers.js",
-    "./stripe.js": "./src/stripe.js"
+    "./stripe.js": "./src/stripe.js",
+    "./email-core.js": "./src/email-core.js",
+    "./bank-details.js": "./src/bank-details.js"
   },
   "dependencies": {
     "xmlrpc": "^1.3.2",
-    "stripe": "^22.1.1"
+    "stripe": "^22.1.1",
+    "resend": "^6.12.3"
   }
 }

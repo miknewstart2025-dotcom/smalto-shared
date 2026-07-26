@@ -6,7 +6,9 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
 
 // sendEmail/emailOrderConfirmation are injected because each app's email.js
 // carries its own app-specific templates alongside these shared helpers.
-export function createStripeHandlers({ sendEmail, emailOrderConfirmation }) {
+// `orderEmailSource` tags the confirmation email sent from the webhook (ex:
+// "B2B-COMMANDE" / "B2C-COMMANDE") so it's identifiable in digital@smalto.fr.
+export function createStripeHandlers({ sendEmail, emailOrderConfirmation, orderEmailSource = null }) {
   const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
   const ODOO_URL = process.env.ODOO_URL;
 
@@ -113,7 +115,7 @@ export function createStripeHandlers({ sendEmail, emailOrderConfirmation }) {
       // Send confirmation email
       try {
         const [order] = await odooCall("sale.order", "read", [[odooOrderId]], {
-          fields: ["name", "amount_total", "amount_untaxed", "date_order", "partner_id", "access_token"],
+          fields: ["name", "amount_total", "amount_untaxed", "amount_tax", "date_order", "partner_id", "access_token"],
         }) || [];
 
         const lines = await odooCall("sale.order.line", "search_read",
@@ -135,16 +137,29 @@ export function createStripeHandlers({ sendEmail, emailOrderConfirmation }) {
             pdfBuffer = await fetchOdooPdfBuffer(pdfUrl).catch(() => null);
           }
 
-          await sendEmail(emailOrderConfirmation({
+          // NB: emailOrderConfirmation() builds the HTML body only (it does
+          // not send anything itself) — it must be passed as sendEmail's
+          // body_html, not called with sendEmail's own {to, subject...} shape.
+          await sendEmail({
             to: toEmail,
-            name: toName,
-            orderNumber: order.name,
-            orderLines: lines,
-            totalHT: order.amount_untaxed,
-            totalTTC: order.amount_total,
-            paymentMethod: "card",
-            pdfBuffer,
-          }));
+            subject: `Maison Smalto — Confirmation de commande ${order.name}`,
+            body_html: emailOrderConfirmation({
+              contactName: toName,
+              orderNumber: order.name,
+              orderDate: order.date_order,
+              lines: (lines || []).map((l) => ({
+                name: l.name,
+                qty: l.product_uom_qty,
+                unit_price: l.price_unit,
+                subtotal: l.price_subtotal,
+              })),
+              amountUntaxed: order.amount_untaxed,
+              amountTax: order.amount_tax,
+              amountTotal: order.amount_total,
+            }),
+            attachments: pdfBuffer ? [{ filename: `commande-${order.name}.pdf`, content: pdfBuffer }] : [],
+            source: orderEmailSource,
+          });
         }
       } catch (e) {
         console.error("Failed to send confirmation email:", e.message);
