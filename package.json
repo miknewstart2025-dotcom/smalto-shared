@@ -16,7 +16,8 @@
     "./product-helpers.js": "./src/product-helpers.js",
     "./stripe.js": "./src/stripe.js",
     "./email-core.js": "./src/email-core.js",
-    "./bank-details.js": "./src/bank-details.js"
+    "./bank-details.js": "./src/bank-details.js",
+    "./maps-config.js": "./src/maps-config.js"
   },
   "dependencies": {
     "xmlrpc": "^1.3.2",
