@@ -1,6 +1,5 @@
 import Stripe from "stripe";
 import { odooCall } from "./odoo-core.js";
-import { fetchOdooPdfBuffer } from "./invoices.js";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
 
@@ -10,7 +9,6 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
 // "B2B-COMMANDE" / "B2C-COMMANDE") so it's identifiable in digital@smalto.fr.
 export function createStripeHandlers({ sendEmail, emailOrderConfirmation, orderEmailSource = null }) {
   const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
-  const ODOO_URL = process.env.ODOO_URL;
 
   // ── Create Stripe Checkout session ───────────────────────────────────────
   async function createCheckoutSession({ odooOrderId, orderNumber, items, shippingCost, partnerId, email, depositPercent }) {
@@ -131,15 +129,11 @@ export function createStripeHandlers({ sendEmail, emailOrderConfirmation, orderE
         const toName = partner?.name || "Client";
 
         if (toEmail && order) {
-          let pdfBuffer = null;
-          if (ODOO_URL && order.access_token) {
-            const pdfUrl = `${ODOO_URL}/my/orders/${odooOrderId}?access_token=${order.access_token}&report_type=pdf`;
-            pdfBuffer = await fetchOdooPdfBuffer(pdfUrl).catch(() => null);
-          }
-
           // NB: emailOrderConfirmation() builds the HTML body only (it does
           // not send anything itself) — it must be passed as sendEmail's
           // body_html, not called with sendEmail's own {to, subject...} shape.
+          // No PDF attached: the invoice/order document is sent separately by
+          // Odoo itself, this email is confirmation-only.
           await sendEmail({
             to: toEmail,
             subject: `Maison Smalto — Confirmation de commande ${order.name}`,
@@ -157,7 +151,6 @@ export function createStripeHandlers({ sendEmail, emailOrderConfirmation, orderE
               amountTax: order.amount_tax,
               amountTotal: order.amount_total,
             }),
-            attachments: pdfBuffer ? [{ filename: `commande-${order.name}.pdf`, content: pdfBuffer }] : [],
             source: orderEmailSource,
           });
         }
