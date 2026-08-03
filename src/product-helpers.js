@@ -263,9 +263,17 @@ export async function computeProductFacets(baseDomain) {
       const values = await odooCall("product.attribute.value", "read", [sizeValueIds], { fields: ["id", "name"] });
       const valueCounts = new Map();
       for (const line of sizeLines) for (const vid of line.value_ids) valueCounts.set(vid, (valueCounts.get(vid) || 0) + 1);
-      sizeFacets = values
-        .map((v) => ({ value: v.name, count: valueCounts.get(v.id) || 0 }))
-        .filter((v) => v.count > 0)
+      // Fusionnées par nom (comme les couleurs) — des doublons d'ID existent en
+      // base pour une même taille, ce qui produisait deux entrées "37" et cassait
+      // React (clés dupliquées) côté catalogue.
+      const mergedSizeCounts = new Map(); // name -> count
+      for (const v of values) {
+        const count = valueCounts.get(v.id) || 0;
+        if (count <= 0) continue;
+        mergedSizeCounts.set(v.name, (mergedSizeCounts.get(v.name) || 0) + count);
+      }
+      sizeFacets = [...mergedSizeCounts.entries()]
+        .map(([value, count]) => ({ value, count }))
         .sort((a, b) => {
           const na = parseFloat(a.value), nb = parseFloat(b.value);
           if (!isNaN(na) && !isNaN(nb)) return na - nb;
