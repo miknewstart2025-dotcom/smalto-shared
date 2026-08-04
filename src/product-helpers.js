@@ -101,21 +101,35 @@ export async function computeCategoryCounts(domain) {
   return [...counts.values()].sort((a, b) => a.name.localeCompare(b.name, "fr"));
 }
 
-// Résout un nom de catégorie (parent, groupe intermédiaire, ou feuille réelle)
-// vers l'ensemble des IDs de catégories-feuilles à filtrer sur les produits.
-// Nécessaire depuis l'introduction de la hiérarchie parent/enfant : un clic
-// sur "Accessoires" ou "Vestes & Manteaux" doit remonter tous les produits
-// des sous-catégories, pas seulement ceux taggés exactement sur ce nom (les
-// parents eux-mêmes ne portent jamais de produit). Comparaison insensible à
-// la casse (=ilike) car les catégories réelles sont en MAJUSCULES alors que
-// les nouveaux parents/groupes sont en French Case ("Vêtements Homme").
-export async function resolveCategoryDescendantIds(categoryName) {
-  const matches = await odooCall("product.category", "search_read",
-    [[["name", "=ilike", categoryName]]],
-    { fields: ["id"], limit: 1 }
-  );
-  if (!matches.length) return [];
-  const rootId = matches[0].id;
+// Résout une catégorie (id Odoo — préféré — ou nom en repli) vers l'ensemble
+// des IDs de catégories-feuilles à filtrer sur les produits. Nécessaire
+// depuis l'introduction de la hiérarchie parent/enfant : un clic sur
+// "Accessoires" ou "Vestes & Manteaux" doit remonter tous les produits des
+// sous-catégories, pas seulement ceux taggés exactement sur ce nom (les
+// parents eux-mêmes ne portent jamais de produit).
+//
+// Le nom reste accepté pour la compatibilité (anciens liens partagés/indexés,
+// paramètre déjà en base) mais ne doit plus être ce sur quoi le frontend se
+// base pour construire un lien — un chemin complet ("Vêtements Homme /
+// Chemises & Polos / CHEMISE") au lieu du nom de la feuille seule ne matche
+// jamais ici et renvoie silencieusement 0 résultat. Le vrai id Odoo
+// (product.categ_id[0] côté produit, node.id dans l'arbre catégories) est
+// sans ambiguïté et doit être préféré partout où il est disponible.
+export async function resolveCategoryDescendantIds(categoryIdOrName) {
+  const isId = typeof categoryIdOrName === "number" || /^\d+$/.test(String(categoryIdOrName ?? ""));
+  let rootId;
+  if (isId) {
+    rootId = parseInt(categoryIdOrName, 10);
+  } else {
+    // Comparaison insensible à la casse (=ilike) car les catégories réelles
+    // sont en MAJUSCULES alors que les parents/groupes sont en French Case.
+    const matches = await odooCall("product.category", "search_read",
+      [[["name", "=ilike", categoryIdOrName]]],
+      { fields: ["id"], limit: 1 }
+    );
+    if (!matches.length) return [];
+    rootId = matches[0].id;
+  }
 
   const allIds = [rootId];
   let frontier = [rootId];
