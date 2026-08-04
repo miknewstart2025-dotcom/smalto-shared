@@ -18,6 +18,20 @@ export function odooImageUrl(model, id, field = "image_512") {
   return `${process.env.ODOO_URL}/web/image/${model}/${id}/${field}`;
 }
 
+// Filtre de sécurité appliqué après coup sur tout résultat produit, quel que
+// soit l'endpoint (catalogue, produit lié, recommandations, recherche...).
+// Un domaine Odoo ["product_template_image_ids", "!=", false] ne garantit
+// pas de façon fiable l'exclusion des templates sans photo (comportement
+// XML-RPC incohérent selon les cas) — on revérifie donc systématiquement en
+// JS sur le résultat déjà chargé plutôt que de faire confiance au seul
+// domaine de recherche. À appeler sur CHAQUE requête qui renvoie des
+// produits, avant tout autre traitement (tri, pagination, enrichissement).
+export function filterProductsWithImages(products) {
+  return (products || []).filter(
+    (p) => Array.isArray(p.product_template_image_ids) && p.product_template_image_ids.length > 0
+  );
+}
+
 export function extractPrimaryMaterial(composition) {
   if (!composition) return null;
   const c = composition.toUpperCase();
