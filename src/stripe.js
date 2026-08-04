@@ -7,7 +7,10 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || "");
 // carries its own app-specific templates alongside these shared helpers.
 // `orderEmailSource` tags the confirmation email sent from the webhook (ex:
 // "B2B-COMMANDE" / "B2C-COMMANDE") so it's identifiable in digital@smalto.fr.
-export function createStripeHandlers({ sendEmail, emailOrderConfirmation, orderEmailSource = null }) {
+// `getCivility` is optional (B2C-only concept — no res.partner.title model on
+// this Odoo instance, so B2C stores it separately, see api/src/odoo.js in
+// b2c-smalto) — defaults to a no-op so B2B stays unaffected.
+export function createStripeHandlers({ sendEmail, emailOrderConfirmation, orderEmailSource = null, getCivility = async () => null }) {
   const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
 
   // ── Create Stripe Checkout session ───────────────────────────────────────
@@ -127,6 +130,7 @@ export function createStripeHandlers({ sendEmail, emailOrderConfirmation, orderE
         const partner = partnerData?.[0];
         const toEmail = partner?.email || session.customer_email;
         const toName = partner?.name || "Client";
+        const civility = await getCivility(partnerId);
 
         if (toEmail && order) {
           // NB: emailOrderConfirmation() builds the HTML body only (it does
@@ -138,6 +142,7 @@ export function createStripeHandlers({ sendEmail, emailOrderConfirmation, orderE
             to: toEmail,
             subject: `Maison Smalto — Confirmation de commande ${order.name}`,
             body_html: emailOrderConfirmation({
+              civility,
               contactName: toName,
               orderNumber: order.name,
               orderDate: order.date_order,
