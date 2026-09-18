@@ -41,9 +41,16 @@ export async function getAdminUid() {
 export async function odooCall(model, method, args, kwargs = {}) {
   const uid = await getAdminUid();
   const client = makeClient("/xmlrpc/2/object");
-  const kw = (method === "write" || method === "create" || method === "unlink")
-    ? { context: { tracking_disable: true, mail_notrack: true }, ...kwargs }
-    : kwargs;
+  // lang par défaut fr_FR : plusieurs champs (ex. product.template.name) sont
+  // traduisibles et Odoo renvoie sinon la traduction "de base" (souvent en
+  // anglais, parfois divergente du libellé FR réellement utilisé/affiché
+  // dans l'UI par l'équipe) — sans ce défaut, deux fiches identiques en FR
+  // peuvent sembler des doublons, ou une vraie divergence FR/EN passer
+  // inaperçue. Reste surchargeable via kwargs.context.lang.
+  const defaultContext = (method === "write" || method === "create" || method === "unlink")
+    ? { lang: "fr_FR", tracking_disable: true, mail_notrack: true }
+    : { lang: "fr_FR" };
+  const kw = { ...kwargs, context: { ...defaultContext, ...(kwargs.context || {}) } };
 
   // Retry avec backoff exponentiel sur rate-limit Odoo (erreur HTML 500 → "H1")
   const delays = [3000, 8000, 20000];
