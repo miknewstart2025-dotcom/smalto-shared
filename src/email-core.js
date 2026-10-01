@@ -16,12 +16,21 @@ function getResend() {
   return _resend;
 }
 
+// `fromName` remplace uniquement le nom affiché de l'expéditeur : l'adresse
+// reste celle de RESEND_FROM (domaine vérifié chez Resend).
+export function buildFrom(fromName, defaultFrom = SMALTO_FROM) {
+  if (!fromName) return defaultFrom;
+  const address = defaultFrom.match(/<([^>]+)>/)?.[1] || defaultFrom.trim();
+  return `${String(fromName).replace(/["<>\r\n]/g, "").trim()} <${address}>`;
+}
+
 // `source` identifie la provenance de l'envoi dans le sujet — ex: "B2B-COMMANDE",
 // "B2C-INSCRIPTION", "B2B-RELANCE-FACTURE" — pour repérer immédiatement d'où
 // vient un email dans digital@smalto.fr, qui reçoit une copie de tout.
 // `cc` permet d'ajouter des copies additionnelles (ex: contact@smalto.com déjà
 // en place) sans jamais remplacer la copie digital@smalto.fr obligatoire.
-export async function sendEmail({ to, subject, body_html, reply_to = null, attachments = [], source = null, cc = [] }) {
+// `fromName` : voir buildFrom ci-dessus.
+export async function sendEmail({ to, subject, body_html, reply_to = null, attachments = [], source = null, cc = [], fromName = null }) {
   const effectiveTo = TEST_EMAIL ? [TEST_EMAIL] : [to];
   const extraCc = (Array.isArray(cc) ? cc : [cc]).filter(Boolean);
   const effectiveCc = TEST_EMAIL ? [] : [...new Set([DIGITAL_CC, ...extraCc])];
@@ -29,7 +38,7 @@ export async function sendEmail({ to, subject, body_html, reply_to = null, attac
   const sourcePrefix = source ? `[${source}] ` : "";
 
   const payload = {
-    from: SMALTO_FROM,
+    from: buildFrom(fromName),
     to: effectiveTo,
     ...(effectiveCc.length ? { cc: effectiveCc } : {}),
     subject: `${testPrefix}${sourcePrefix}${subject}`,
