@@ -17,7 +17,12 @@
     "./stripe.js": "./src/stripe.js",
     "./email-core.js": "./src/email-core.js",
     "./bank-details.js": "./src/bank-details.js",
-    "./maps-config.js": "./src/maps-config.js"
+    "./maps-config.js": "./src/maps-config.js",
+    "./b2c-settings.js": "./src/b2c-settings.js",
+    "./b2c-settings-defaults.js": {
+      "types": "./src/b2c-settings-defaults.d.ts",
+      "default": "./src/b2c-settings-defaults.js"
+    }
   },
   "dependencies": {
     "xmlrpc": "^1.3.2",
