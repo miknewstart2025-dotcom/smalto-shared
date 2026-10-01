@@ -22,6 +22,10 @@
     "./b2c-settings-defaults.js": {
       "types": "./src/b2c-settings-defaults.d.ts",
       "default": "./src/b2c-settings-defaults.js"
+    },
+    "./social-links.js": {
+      "types": "./src/social-links.d.ts",
+      "default": "./src/social-links.js"
     }
   },
   "dependencies": {

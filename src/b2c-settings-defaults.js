@@ -17,6 +17,39 @@ export const POPUP_PAGE_CHOICES = ["catalogue", "collections", "produit"];
 // ceux-ci, il ne peut pas en ajouter (pas d'envoi de fichier).
 export const HERO_IMAGE_CHOICES = ["hero-1", "hero-2", "hero-3", "hero-4"];
 
+// Photos de marque disponibles dans le déploiement B2C (public/brand/<nom>.jpg)
+// pour les blocs éditoriaux de l'accueil — choix parmi celles-ci uniquement.
+export const BRAND_IMAGE_CHOICES = [
+  "atelier-coupe", "atelier-couture", "atelier-cuir", "atelier-finition",
+  "collection-1", "collection-2", "hero-main", "histoire-fondation",
+  "histoire-moderne", "savoir-dessin", "savoir-matieres", "storytelling",
+];
+
+// Image de partage (Open Graph / réseaux sociaux) : un visuel du slider ou
+// une photo de marque, au format "<dossier>/<nom>" → /<dossier>/<nom>.jpg.
+export const OG_IMAGE_CHOICES = [
+  ...HERO_IMAGE_CHOICES.map((n) => `hero/${n}`),
+  ...BRAND_IMAGE_CHOICES.map((n) => `brand/${n}`),
+];
+
+function editorialImages(data) {
+  const e = data && typeof data === "object" ? data : {};
+  const savoirFaire = Array.isArray(e.savoirFaire) ? e.savoirFaire : [];
+  if (savoirFaire.length !== 3) throw new Error("Visuels Savoir-faire : exactement 3 images.");
+  return {
+    histoire: brandImage(e.histoire, "Visuel Histoire"),
+    savoirFaire: savoirFaire.map((v, i) => brandImage(v, `Visuel Savoir-faire n°${i + 1}`)),
+    boutique: brandImage(e.boutique, "Visuel Boutique"),
+  };
+}
+
+function brandImage(value, label) {
+  if (!BRAND_IMAGE_CHOICES.includes(value)) {
+    throw new Error(`${label} : image à choisir parmi ${BRAND_IMAGE_CHOICES.join(", ")}.`);
+  }
+  return value;
+}
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 // Revendeurs agréés (store locator B2C, page revendeurs B2B). Coordonnées
@@ -124,6 +157,13 @@ export const B2C_SETTINGS = {
       heroImages: ["hero-1", "hero-2", "hero-3", "hero-4"],
       slideDurationMs: 3000,
       shippingBanner: { fr: null, en: null, es: null, pt: null },
+      // Blocs éditoriaux sous le slider : Histoire (plein cadre),
+      // Savoir-faire (3 vignettes, dans l'ordre), Boutique.
+      editorialImages: {
+        histoire: "histoire-fondation",
+        savoirFaire: ["atelier-coupe", "atelier-couture", "atelier-finition"],
+        boutique: "collection-2",
+      },
     },
     validate(data) {
       const d = object(data);
@@ -135,6 +175,31 @@ export const B2C_SETTINGS = {
         heroImages: images,
         slideDurationMs: int(d.slideDurationMs, 1000, 30000, "Durée d'une image du slider (ms)"),
         shippingBanner: localized(d.shippingBanner, 200, "Bannière livraison"),
+        editorialImages: editorialImages(d.editorialImages),
+      };
+    },
+  },
+
+  // SEO par défaut (page d'accueil et pages sans texte propre). null = texte
+  // actuel des traductions du site (messages/*.json → meta.title /
+  // meta.description). ogImage : image de partage par défaut.
+  seo: {
+    key: "smalto.b2c.seo",
+    public: true,
+    default: {
+      title: { fr: null, en: null, es: null, pt: null },
+      description: { fr: null, en: null, es: null, pt: null },
+      ogImage: "hero/hero-1",
+    },
+    validate(data) {
+      const d = object(data);
+      if (!OG_IMAGE_CHOICES.includes(d.ogImage)) {
+        throw new Error(`Image de partage : à choisir parmi ${OG_IMAGE_CHOICES.join(", ")}.`);
+      }
+      return {
+        title: localized(d.title, 70, "Titre SEO"),
+        description: localized(d.description, 200, "Description SEO"),
+        ogImage: d.ogImage,
       };
     },
   },

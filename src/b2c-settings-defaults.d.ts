@@ -11,6 +11,12 @@ export interface HomeSetting {
   heroImages: string[];
   slideDurationMs: number;
   shippingBanner: LocalizedText;
+  editorialImages: { histoire: string; savoirFaire: string[]; boutique: string };
+}
+export interface SeoSetting {
+  title: LocalizedText;
+  description: LocalizedText;
+  ogImage: string;
 }
 export interface ShippingRatesSetting {
   europe: number;
@@ -46,6 +52,7 @@ export interface RetailPartnerSetting {
 export interface B2CSettingsMap {
   newsletterPopup: NewsletterPopupSetting;
   home: HomeSetting;
+  seo: SeoSetting;
   shippingRates: ShippingRatesSetting;
   emails: EmailsSetting;
   boutique: BoutiqueSetting;
@@ -57,6 +64,8 @@ export type B2CPublicSettings = Omit<B2CSettingsMap, "emails">;
 export const LOCALES: Locale[];
 export const POPUP_PAGE_CHOICES: NewsletterPopupSetting["pages"];
 export const HERO_IMAGE_CHOICES: string[];
+export const BRAND_IMAGE_CHOICES: string[];
+export const OG_IMAGE_CHOICES: string[];
 export const B2C_SETTINGS: {
   [K in B2CSettingName]: { key: string; public: boolean; default: B2CSettingsMap[K]; validate(data: unknown): B2CSettingsMap[K] };
 };
