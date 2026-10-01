@@ -1,6 +1,6 @@
 {
   "name": "smalto-shared",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Logique backend partagée entre b2b-smalto et b2c-smalto (client Odoo, factures, wishlist...)",
   "type": "module",
   "exports": {
