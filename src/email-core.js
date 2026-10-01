@@ -30,10 +30,15 @@ export function buildFrom(fromName, defaultFrom = SMALTO_FROM) {
 // `cc` permet d'ajouter des copies additionnelles (ex: contact@smalto.com déjà
 // en place) sans jamais remplacer la copie digital@smalto.fr obligatoire.
 // `fromName` : voir buildFrom ci-dessus.
-export async function sendEmail({ to, subject, body_html, reply_to = null, attachments = [], source = null, cc = [], fromName = null }) {
+// `internalCopies: false` supprime TOUTES les copies (digital@ comprise) :
+// réservé aux emails qui portent un lien personnel d'action (confirmation
+// d'inscription newsletter, désinscription en un clic) — une copie
+// permettrait à un tiers de cliquer à la place du destinataire.
+// `headers` : en-têtes additionnels (ex. List-Unsubscribe).
+export function buildEmailPayload({ to, subject, body_html, reply_to = null, attachments = [], source = null, cc = [], fromName = null, headers = {}, internalCopies = true }) {
   const effectiveTo = TEST_EMAIL ? [TEST_EMAIL] : [to];
   const extraCc = (Array.isArray(cc) ? cc : [cc]).filter(Boolean);
-  const effectiveCc = TEST_EMAIL ? [] : [...new Set([DIGITAL_CC, ...extraCc])];
+  const effectiveCc = TEST_EMAIL || !internalCopies ? [] : [...new Set([DIGITAL_CC, ...extraCc])];
   const testPrefix = TEST_EMAIL ? `[TEST → ${to}] ` : "";
   const sourcePrefix = source ? `[${source}] ` : "";
 
@@ -44,9 +49,14 @@ export async function sendEmail({ to, subject, body_html, reply_to = null, attac
     subject: `${testPrefix}${sourcePrefix}${subject}`,
     html: body_html,
     ...(attachments.length ? { attachments } : {}),
+    ...(headers && Object.keys(headers).length ? { headers } : {}),
   };
   if (reply_to) payload.reply_to = reply_to;
+  return payload;
+}
 
+export async function sendEmail(params) {
+  const payload = buildEmailPayload(params);
   const { data, error } = await getResend().emails.send(payload);
   if (error) throw new Error(error.message || "Email send failed");
   return data?.id;
