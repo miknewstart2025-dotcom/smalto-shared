@@ -52,36 +52,6 @@ function brandImage(value, label) {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// Revendeurs agréés (store locator B2C, page revendeurs B2B). Coordonnées
-// GPS facultatives : sans lat/lng, le B2C place le point au centre de la
-// ville s'il la connaît, sinon ne l'affiche pas sur la carte.
-const DEFAULT_RETAIL_PARTNERS = [
-  { name: "Artextyl", city: "Paris", postalCode: "75016", country: "France" },
-  { name: "Sarl Travelling — Casting & L'Homme", address: "2 Place Chabaneau", city: "Montpellier", postalCode: "34000", country: "France" },
-  { name: "Come Back Sarl", address: "54, avenue de Clichy", city: "Paris", postalCode: "75018", country: "France" },
-  { name: "C3 — Christophe Coutin", address: "27 rue Blatin", city: "Clermont-Ferrand", postalCode: "63000", country: "France" },
-  { name: "Gentry (Rastignac)", address: "25 rue des 3 Cailloux", city: "Amiens", postalCode: "80000", country: "France" },
-  { name: "Guy Koskas", city: "Paris", postalCode: "75016", country: "France" },
-  { name: "Marciano SAS", address: "2 Place de la Porte Maillot", city: "Paris", postalCode: "75017", country: "France" },
-  { name: "Octavien Diffusion", address: "20 Place de la Cathédrale", city: "Colmar", postalCode: "68000", country: "France" },
-  { name: "Showroom Smalto", address: "9 avenue d'Eylau", city: "Paris", postalCode: "75016", country: "France" },
-  { name: "Saint Hilaire", address: "130 Boulevard de Clichy", city: "Paris", postalCode: "75018", country: "France" },
-  { name: "Sarl J N L (Theo Fil)", address: "110 avenue Victor Hugo", city: "Paris", postalCode: "75016", country: "France" },
-  { name: "Sam Mercure Int of Monaco", address: "17 avenue Albert II", city: "Monaco", postalCode: "98000", country: "Monaco" },
-  { name: "Abenis & Fils", city: "Abidjan", country: "Côte d'Ivoire" },
-  { name: "Bachou Boutik", address: "21/22 Mermoz Pyrotechnique", city: "Abidjan", country: "Côte d'Ivoire" },
-  { name: "Emeraude", city: "Abidjan", country: "Côte d'Ivoire" },
-  { name: "Essentiel", address: "Cocody Riviera Palmeraie", city: "Abidjan", country: "Côte d'Ivoire" },
-  { name: "Houdrouge", address: "Boulevard Botreau Roussel", city: "Abidjan", country: "Côte d'Ivoire" },
-  { name: "Ara Trading", address: "Cité Khemisti", city: "Oran", postalCode: "31026", country: "Algérie" },
-  { name: "Chic Congo Brazzaville", address: "Centre Ville, Immeuble CNS", city: "Brazzaville", country: "Congo" },
-  { name: "Chic Congo Pointe-Noire", address: "Centre Ville, Avenue Charles de Gaulle", city: "Pointe-Noire", country: "Congo" },
-  { name: "Eclat Plus", address: "Avenue des Écuries N°34", city: "Kinshasa", country: "Congo" },
-  { name: "GCH Hospitality Sarl", address: "265 Boulevard Zerktouni N°92", city: "Casablanca", country: "Maroc" },
-  { name: "Seves", address: "Angle Avenue Annakhil & Boulevard Addolb", city: "Rabat", country: "Maroc" },
-  { name: "La Maison Balmain", city: "Yaoundé", country: "Cameroun" },
-];
-
 // ── Helpers de validation ────────────────────────────────────────────────────
 // Chaque validateur renvoie la valeur normalisée ou lève une Error dont le
 // message est affichable tel quel dans l'admin.
@@ -273,38 +243,6 @@ export const B2C_SETTINGS = {
     },
   },
 
-  // Clé commune B2B/B2C (pas de préfixe b2c).
-  retailPartners: {
-    key: "smalto.retail_partners",
-    public: true,
-    default: DEFAULT_RETAIL_PARTNERS,
-    validate(data) {
-      if (!Array.isArray(data) || data.length > 500) throw new Error("Revendeurs : liste de 0 à 500 entrées attendue.");
-      return data.map((p, i) => {
-        const d = object(p);
-        const label = `Revendeur n°${i + 1}`;
-        const out = { name: text(d.name, 120, `${label}, nom`) };
-        const address = text(d.address, 200, `${label}, adresse`, { optional: true });
-        if (address) out.address = address;
-        out.city = text(d.city, 80, `${label}, ville`);
-        const postalCode = text(d.postalCode, 20, `${label}, code postal`, { optional: true });
-        if (postalCode) out.postalCode = postalCode;
-        out.country = text(d.country, 60, `${label}, pays`);
-        const hasLat = d.lat !== undefined && d.lat !== null && d.lat !== "";
-        const hasLng = d.lng !== undefined && d.lng !== null && d.lng !== "";
-        if (hasLat !== hasLng) throw new Error(`${label} : latitude et longitude vont ensemble.`);
-        if (hasLat) {
-          const lat = Number(d.lat), lng = Number(d.lng);
-          if (!Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(lng) || lng < -180 || lng > 180) {
-            throw new Error(`${label} : coordonnées GPS invalides.`);
-          }
-          out.lat = lat;
-          out.lng = lng;
-        }
-        return out;
-      });
-    },
-  },
 };
 
 export const B2C_SETTING_NAMES = Object.keys(B2C_SETTINGS);

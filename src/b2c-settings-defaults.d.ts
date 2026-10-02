@@ -39,15 +39,6 @@ export interface BoutiqueSetting {
   email: string;
   hours: string;
 }
-export interface RetailPartnerSetting {
-  name: string;
-  address?: string;
-  city: string;
-  postalCode?: string;
-  country: string;
-  lat?: number;
-  lng?: number;
-}
 
 export interface B2CSettingsMap {
   newsletterPopup: NewsletterPopupSetting;
@@ -56,7 +47,6 @@ export interface B2CSettingsMap {
   shippingRates: ShippingRatesSetting;
   emails: EmailsSetting;
   boutique: BoutiqueSetting;
-  retailPartners: RetailPartnerSetting[];
 }
 export type B2CSettingName = keyof B2CSettingsMap;
 export type B2CPublicSettings = Omit<B2CSettingsMap, "emails">;

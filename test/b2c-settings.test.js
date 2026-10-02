@@ -32,11 +32,9 @@ test("chaque valeur par défaut passe sa propre validation, à l'identique", () 
   }
 });
 
-test("clés : préfixe smalto.b2c.* sauf la liste revendeurs commune", () => {
+test("clés : préfixe smalto.b2c.*", () => {
   for (const name of B2C_SETTING_NAMES) {
-    const key = B2C_SETTINGS[name].key;
-    if (name === "retailPartners") assert.equal(key, "smalto.retail_partners");
-    else assert.match(key, /^smalto\.b2c\.[a-z_]+$/);
+    assert.match(B2C_SETTINGS[name].key, /^smalto\.b2c\.[a-z_]+$/);
   }
   // Les clés existantes du contrat B2B ne sont pas réutilisées.
   const keys = B2C_SETTING_NAMES.map((n) => B2C_SETTINGS[n].key);
@@ -91,8 +89,6 @@ test("écriture refusée : rien n'est écrit, message affichable", async () => {
     ["emails", { signature: "S", replyTo: "pas-un-email" }, /Adresse de réponse/],
     ["emails", { signature: "S", fromName: 'A"B' }, /guillemets/],
     ["boutique", { ...getB2CSettingDefault("boutique"), phone: "appelez-nous" }, /Téléphone/],
-    ["retailPartners", [{ name: "X", city: "Paris", country: "France", lat: 48 }], /latitude et longitude/],
-    ["retailPartners", "pas une liste", /Revendeurs/],
   ];
   for (const [name, data, msg] of cases) {
     await assert.rejects(setB2CSetting(name, data, { call: odoo.call }), msg, name);
@@ -104,11 +100,6 @@ test("écriture refusée : rien n'est écrit, message affichable", async () => {
 test("popup : pages normalisées dans l'ordre de référence, sans doublon", () => {
   const v = B2C_SETTINGS.newsletterPopup.validate({ delaySeconds: 0, dismissDays: 1, subscribedDays: 1, pages: ["produit", "catalogue", "produit"] });
   assert.deepEqual(v.pages, ["catalogue", "produit"]);
-});
-
-test("revendeurs : champs vides retirés, inconnus ignorés, GPS conservé", () => {
-  const [p] = B2C_SETTINGS.retailPartners.validate([{ name: " A ", address: "", city: "Lyon", country: "France", lat: "45.76", lng: 4.83, extra: "x" }]);
-  assert.deepEqual(p, { name: "A", city: "Lyon", country: "France", lat: 45.76, lng: 4.83 });
 });
 
 test("phoneHref reproduit le lien actuel", () => {
