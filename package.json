@@ -1,6 +1,6 @@
 {
   "name": "smalto-shared",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Logique backend partagée entre b2b-smalto et b2c-smalto (client Odoo, factures, wishlist...)",
   "type": "module",
   "exports": {
@@ -26,6 +26,14 @@
     "./social-links.js": {
       "types": "./src/social-links.d.ts",
       "default": "./src/social-links.js"
+    },
+    "./catalog-display.js": {
+      "types": "./src/catalog-display.d.ts",
+      "default": "./src/catalog-display.js"
+    },
+    "./order-pricing.js": {
+      "types": "./src/order-pricing.d.ts",
+      "default": "./src/order-pricing.js"
     }
   },
   "dependencies": {
