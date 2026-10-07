@@ -12,8 +12,18 @@
 // - listenForScans : branchement sur la page. Si le curseur était dans un
 //   champ de saisie, les caractères du code y sont effacés (le champ retrouve
 //   sa valeur d'avant le scan) et « Entrée » n'y est pas transmis.
+//
+// Douchette Bluetooth : la liaison peut marquer un court arrêt. Un « Entrée »
+// un peu en retard termine quand même le scan ; un code coupé en deux par un
+// arrêt est signalé (« misread ») au lieu d'être pris pour un autre code ou
+// ignoré sans bruit : la page demande alors de rescanner.
 
 export const SCAN_DEFAULTS = { minLength: 6, maxGapMs: 100 };
+
+// « Entrée » accepté jusqu'à ce délai après le dernier caractère (× maxGapMs).
+const LATE_ENTER = 3;
+// Début de code abandonné par un arrêt : au moins 3 chiffres tapés vite.
+const isCodeStart = (s) => s.length >= 3 && /^\d+$/.test(s);
 
 const CODE_CHARS = { Minus: "-", Period: ".", Slash: "/", Space: " ", NumpadSubtract: "-", NumpadDecimal: ".", NumpadDivide: "/" };
 
@@ -33,19 +43,28 @@ export function keyFromEvent({ code, key, shiftKey }) {
 export function createScanDetector({ minLength = SCAN_DEFAULTS.minLength, maxGapMs = SCAN_DEFAULTS.maxGapMs } = {}) {
   let buffer = "";
   let last = 0;
+  let broken = ""; // début d'un code coupé par un arrêt
   return {
     // key : caractère (keyFromEvent) ou « Enter » / « Tab » ; at : horodatage en ms.
-    // Renvoie { type: "scan", code } | { type: "start" } | { type: "char" } | { type: "ignore" }.
+    // Renvoie { type: "scan", code } | { type: "misread", code } | { type: "start" }
+    // | { type: "char" } | { type: "ignore" }.
     push(key, at) {
       const gap = at - last;
       last = at;
       if (key === "Enter" || key === "Tab") {
-        const code = buffer;
+        const code = buffer, head = broken;
         buffer = "";
-        return gap <= maxGapMs && code.length >= minLength ? { type: "scan", code } : { type: "ignore" };
+        broken = "";
+        // Le code entier est tapé vite (sinon il serait coupé) : seul
+        // « Entrée » peut arriver un peu en retard.
+        if (!code || gap > maxGapMs * LATE_ENTER) return { type: "ignore" };
+        if (head) return { type: "misread", code: head + code };
+        return code.length >= minLength ? { type: "scan", code } : { type: "ignore" };
       }
       if (typeof key !== "string" || key.length !== 1) return { type: "ignore" };
       if (!buffer || gap > maxGapMs) {
+        // Arrêt au milieu d'un code : la suite n'est pas un code à elle seule.
+        broken = buffer && gap <= maxGapMs * LATE_ENTER && isCodeStart(buffer) ? broken + buffer : "";
         buffer = key;
         return { type: "start" };
       }
@@ -56,12 +75,19 @@ export function createScanDetector({ minLength = SCAN_DEFAULTS.minLength, maxGap
     // (EAN…) tapé très vite puis suivi d'un silence est aussi un scan. Limité
     // aux chiffres pour ne jamais prendre un mot tapé vite pour un scan.
     idle(at) {
-      if (at - last <= maxGapMs || buffer.length < minLength || !/^\d+$/.test(buffer)) return { type: "ignore" };
+      if (at - last <= maxGapMs || !/^\d+$/.test(buffer)) return { type: "ignore" };
+      if (broken) {
+        const code = broken + buffer;
+        buffer = "";
+        broken = "";
+        return { type: "misread", code };
+      }
+      if (buffer.length < minLength) return { type: "ignore" };
       const code = buffer;
       buffer = "";
       return { type: "scan", code };
     },
-    reset() { buffer = ""; last = 0; },
+    reset() { buffer = ""; last = 0; broken = ""; },
   };
 }
 
@@ -75,7 +101,8 @@ function restoreField(el, value) {
   el.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
-// onScan(code) ; renvoie la fonction qui débranche l'écoute.
+// onScan(code) ; options.onMisread(code) : code coupé, à rescanner.
+// Renvoie la fonction qui débranche l'écoute.
 export function listenForScans(onScan, options = {}) {
   if (typeof window === "undefined") return () => {};
   const detector = createScanDetector(options);
@@ -83,10 +110,11 @@ export function listenForScans(onScan, options = {}) {
   let field = null;
   let before = "";
   let timer = null;
-  const done = (code) => {
+  const done = (code, misread = false) => {
     if (field && field.value !== before) restoreField(field, before);
     field = null;
-    onScan(code);
+    if (misread) options.onMisread?.(code);
+    else onScan(code);
   };
   const onKey = (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -100,12 +128,12 @@ export function listenForScans(onScan, options = {}) {
     if (r.type === "start" || r.type === "char") {
       timer = setTimeout(() => {
         const idle = detector.idle(performance.now());
-        if (idle.type === "scan") done(idle.code);
+        if (idle.type === "scan" || idle.type === "misread") done(idle.code, idle.type === "misread");
       }, maxGapMs * 2);
-    } else if (r.type === "scan") {
+    } else if (r.type === "scan" || r.type === "misread") {
       e.preventDefault();
       e.stopPropagation();
-      done(r.code);
+      done(r.code, r.type === "misread");
     }
   };
   window.addEventListener("keydown", onKey, true);
