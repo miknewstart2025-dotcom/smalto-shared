@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { createScanDetector } from "../src/barcode-scanner.js";
+import { createScanDetector, keyFromEvent } from "../src/barcode-scanner.js";
 
 // Tape une suite de touches, `gap` ms entre chacune ; renvoie le dernier résultat.
 function type(detector, keys, gap, start = 1000) {
@@ -37,4 +37,45 @@ test("douchette : touches spéciales ignorées, Tab termine aussi un scan", () =
   const d = createScanDetector({ minLength: 4 });
   assert.deepEqual(d.push("Shift", 1), { type: "ignore" });
   assert.deepEqual(type(d, [..."ABC123", "Tab"], 5).r, { type: "scan", code: "ABC123" });
+});
+
+// Clavier français (AZERTY) sur un Mac ou un iPad : la rangée des chiffres
+// produit « & é " ' ( § è ! ç à » sans Majuscule.
+const AZERTY_MAC = { 1: "&", 2: "é", 3: '"', 4: "'", 5: "(", 6: "§", 7: "è", 8: "!", 9: "ç", 0: "à" };
+
+test("douchette : clavier français, le code lu est celui de la douchette (touche physique)", () => {
+  const d = createScanDetector();
+  let t = 1000, r;
+  for (const digit of "3667497000189") {
+    t += 8;
+    r = d.push(keyFromEvent({ code: `Digit${digit}`, key: AZERTY_MAC[digit], shiftKey: false }), t);
+  }
+  r = d.push(keyFromEvent({ code: "Enter", key: "Enter", shiftKey: false }), t + 8);
+  assert.deepEqual(r, { type: "scan", code: "3667497000189" });
+});
+
+test("douchette : lettres et pavé numérique lus d'après la touche physique", () => {
+  assert.equal(keyFromEvent({ code: "KeyQ", key: "a", shiftKey: false }), "q"); // AZERTY : A ↔ Q
+  assert.equal(keyFromEvent({ code: "KeyA", key: "Q", shiftKey: true }), "A");
+  assert.equal(keyFromEvent({ code: "Numpad7", key: "7", shiftKey: false }), "7");
+  assert.equal(keyFromEvent({ code: "NumpadEnter", key: "Enter", shiftKey: false }), "Enter");
+  assert.equal(keyFromEvent({ code: "Minus", key: ")", shiftKey: false }), "-");
+});
+
+test("douchette sans « Entrée » final : code numérique suivi d'un silence = scan", () => {
+  const d = createScanDetector();
+  const { t } = type(d, [..."3667497000189"], 9);
+  assert.deepEqual(d.idle(t + 50), { type: "ignore" });          // encore en cours
+  assert.deepEqual(d.idle(t + 250), { type: "scan", code: "3667497000189" });
+});
+
+test("douchette sans « Entrée » : un mot tapé vite n'est jamais pris pour un scan", () => {
+  const d = createScanDetector();
+  const { t } = type(d, [..."pantalon"], 30);
+  assert.deepEqual(d.idle(t + 300), { type: "ignore" });
+});
+
+test("douchette Bluetooth un peu lente (70 ms entre deux touches) : toujours un scan", () => {
+  const d = createScanDetector();
+  assert.deepEqual(type(d, [..."3667497000189", "Enter"], 70).r, { type: "scan", code: "3667497000189" });
 });
