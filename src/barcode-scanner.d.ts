@@ -5,10 +5,13 @@ export interface ScanOptions {
   minLength?: number;
   /** Écart maximal entre deux touches d'un même scan, en ms (défaut 100). */
   maxGapMs?: number;
+  /** Code coupé par un arrêt de la douchette (à rescanner) : listenForScans seulement. */
+  onMisread?: (code: string) => void;
 }
 
 export type ScanStep =
   | { type: "scan"; code: string }
+  | { type: "misread"; code: string }
   | { type: "start" }
   | { type: "char" }
   | { type: "ignore" };
